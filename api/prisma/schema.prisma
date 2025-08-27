@@ -1,0 +1,148 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  passwordHash  String
+  tz            String   @default("Asia/Singapore")
+  currency      String   @default("SGD")
+  createdAt     DateTime @default(now())
+  categories    Category[]
+  instruments   PaymentInstrument[]
+  merchants     Merchant[]
+  transactions  Transaction[]
+  recurring     RecurringTemplate[]
+  reminders     Reminder[]
+}
+
+model Category {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  name      String
+  type      CategoryType
+  color     String?
+  sortOrder Int       @default(0)
+  createdAt DateTime  @default(now())
+  transactions Transaction[]
+}
+
+enum CategoryType {
+  expense
+  income
+}
+
+model PaymentInstrument {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
+  type          InstrumentType
+  name          String
+  last4         String?
+  issuer        String?
+  statementDay  Int? // 1-28 or null if not a card
+  paymentDay    Int? // 1-28
+  creditLimit   Float?
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  transactions  Transaction[]
+  cycles        CardCycle[]
+}
+
+enum InstrumentType {
+  credit_card
+  debit
+  cash
+  bank
+}
+
+model Merchant {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  name      String
+  createdAt DateTime @default(now())
+  transactions Transaction[]
+}
+
+model Transaction {
+  id               String   @id @default(cuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id])
+  date             DateTime
+  amountCharged    Float
+  amountPersonal   Float
+  direction        Direction
+  categoryId       String?
+  category         Category? @relation(fields: [categoryId], references: [id])
+  instrumentId     String?
+  instrument       PaymentInstrument? @relation(fields: [instrumentId], references: [id])
+  merchantId       String?
+  merchant         Merchant? @relation(fields: [merchantId], references: [id])
+  notes            String?
+  tags             String[]
+  createdAt        DateTime @default(now())
+}
+
+enum Direction {
+  expense
+  income
+}
+
+model RecurringTemplate {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id])
+  direction      Direction
+  amountCharged  Float
+  amountPersonal Float
+  categoryId     String?
+  category       Category? @relation(fields: [categoryId], references: [id])
+  instrumentId   String?
+  instrument     PaymentInstrument? @relation(fields: [instrumentId], references: [id])
+  merchantId     String?
+  merchant       Merchant? @relation(fields: [merchantId], references: [id])
+  notes          String?
+  tags           String[]
+  rrule          String
+  startDate      DateTime
+  endDate        DateTime?
+  createdAt      DateTime @default(now())
+}
+
+model CardCycle {
+  id          String   @id @default(cuid())
+  instrumentId String
+  instrument   PaymentInstrument @relation(fields: [instrumentId], references: [id])
+  periodStart DateTime
+  periodEnd   DateTime
+  statementGeneratedAt DateTime?
+  dueDate     DateTime?
+  openingBalance Float  @default(0)
+  closingBalance Float  @default(0)
+  paid        Boolean @default(false)
+  createdAt   DateTime @default(now())
+}
+
+model Reminder {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  kind      ReminderKind
+  runAt     DateTime
+  payload   Json
+  createdAt DateTime @default(now())
+  sentAt    DateTime?
+}
+
+enum ReminderKind {
+  card_due
+  custom
+}
