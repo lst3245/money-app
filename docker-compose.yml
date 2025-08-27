@@ -1,13 +1,14 @@
 version: "3.9"
+
 services:
   db:
     image: postgres:16
     environment:
       POSTGRES_DB: money
       POSTGRES_USER: money
-      POSTGRES_PASSWORD: money
+      POSTGRES_PASSWORD: money        # change for production
     volumes:
-      - dbdata:/var/lib/postgresql/data
+      - /home/ubuntu/containers/money-app/db:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL","pg_isready -U money"]
       interval: 10s
@@ -15,10 +16,11 @@ services:
       retries: 5
 
   api:
-    build: ./api
+    build:
+      context: https://github.com/lst3245/money-app.git#main:api
     environment:
       DATABASE_URL: postgresql://money:money@db:5432/money?schema=public
-      JWT_SECRET: change-me
+      JWT_SECRET: change-me           # set a strong secret
       NODE_ENV: production
       PORT: 4000
     depends_on:
@@ -26,7 +28,8 @@ services:
         condition: service_healthy
 
   web:
-    build: ./web
+    build:
+      context: https://github.com/lst3245/money-app.git#main:web
     environment:
       NEXT_PUBLIC_API_BASE: /api
       NODE_ENV: production
@@ -34,19 +37,14 @@ services:
       - api
 
   proxy:
-    image: caddy:2
+    build:
+      context: https://github.com/lst3245/money-app.git#main:proxy
     volumes:
-      - ./proxy/Caddyfile:/etc/caddy/Caddyfile
-      - caddydata:/data
-      - caddyconfig:/config
+      - /home/ubuntu/containers/money-app/caddy-data:/data
+      - /home/ubuntu/containers/money-app/caddy-config:/config
     ports:
       - "80:80"
       - "443:443"
     depends_on:
       - web
       - api
-
-volumes:
-  dbdata:
-  caddydata:
-  caddyconfig:
